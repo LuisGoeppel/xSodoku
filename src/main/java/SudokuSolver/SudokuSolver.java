@@ -60,9 +60,11 @@ public class SudokuSolver {
             }
         }
 
-        for (int i = 0; i < 50; i++) {
+        boolean progressMade;
+        do {
+            System.out.println("Round");
+            progressMade = false;
             for (int j = 0; j < 81; j++) {
-
                 if (matrix[j] == 0) {
                     int rowNumber = j / 9;
                     int colNumber = j % 9;
@@ -76,10 +78,11 @@ public class SudokuSolver {
                         rows[rowNumber] = rows[rowNumber] | (1 << number);
                         cols[colNumber] = cols[colNumber] | (1 << number);
                         boxes[boxNumber] = boxes[boxNumber] | (1 << number);
+                        progressMade = true;
                     }
                 }
             }
-        }
+        } while (progressMade);
         return matrix;
     }
 

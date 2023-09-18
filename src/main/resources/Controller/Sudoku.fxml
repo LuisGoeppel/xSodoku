@@ -8,7 +8,7 @@
 <?import javafx.scene.layout.AnchorPane?>
 <?import javafx.scene.text.Font?>
 
-<AnchorPane prefHeight="600.0" prefWidth="837.0" xmlns="http://javafx.com/javafx/20.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.SudokuController">
+<AnchorPane prefHeight="600.0" prefWidth="837.0" xmlns="http://javafx.com/javafx/18" xmlns:fx="http://javafx.com/fxml/1" fx:controller="Controller.SudokuController">
    <children>
       <ImageView fitHeight="600.0" fitWidth="837.0" pickOnBounds="true" preserveRatio="true">
          <image>
@@ -16,6 +16,7 @@
          </image>
       </ImageView>
       <Canvas fx:id="gameCanvas" height="510.0" layoutX="57.0" layoutY="44.0" width="510.0" />
+      <Canvas fx:id="notationCanvas" height="510.0" layoutX="57.0" layoutY="44.0" width="510.0" />
       <AnchorPane fx:id="gamePane" layoutX="57.0" layoutY="44.0" prefHeight="510.0" prefWidth="510.0" />
       <Button fx:id="btnSetup" layoutX="609.0" layoutY="144.0" mnemonicParsing="false" onAction="#setUpBoard" prefHeight="70.0" prefWidth="185.0" text="Custom Setup">
          <font>

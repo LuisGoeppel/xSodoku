@@ -22,6 +22,8 @@ public class SudokuController {
     @FXML
     private Canvas gameCanvas;
     @FXML
+    private Canvas notationCanvas;
+    @FXML
     private Button btnSetup;
 
     private Sudoku sudoku;
@@ -50,10 +52,12 @@ public class SudokuController {
         drawMatrix(sudoku.getMatrix(), sudoku.getStartNumbers());
 
         gamePane.addEventHandler(MouseEvent.MOUSE_CLICKED, mouseEvent -> {
-            int xCord = (int) (mouseEvent.getX() / squareWidth);
-            int yCord = (int) (mouseEvent.getY() / squareWidth);
+            int xCord = Math.min((int) (mouseEvent.getX() / squareWidth), 8);
+            int yCord = Math.min((int) (mouseEvent.getY() / squareWidth), 8);
 
             selectedSquare = xCord + yCord * 9;
+            selectionRect.setX(xCord * squareWidth + (xCord/3) * 6);
+            selectionRect.setY(yCord * squareWidth + (yCord/3) * 6);
             selectionRect.setFill(selectColor);
         });
 
@@ -93,7 +97,7 @@ public class SudokuController {
 
     @FXML
     public void generateNew() {
-        sudoku = new Sudoku("-64----1-/---1-2--4/13---9685/4--------/9-5----42/-8-2-41-7/87----9--/3--7-----/---891---");
+        sudoku = new Sudoku("-6-9---1-/--34--97-/-2-7-----/------2-7/--2--1--8/-8---5-3-/---------/-3---6-9-/4--1---8-");
         drawMatrix(sudoku.getMatrix(), sudoku.getStartNumbers());
     }
 
@@ -108,13 +112,18 @@ public class SudokuController {
         if (e.getCode() == KeyCode.ESCAPE) {
             selectedSquare = -1;
             selectionRect.setFill(hoverColor);
-        } else if (e.getCode().isDigitKey() && e.getCode().getCode() > 48) {
+        } else if (e.getCode().getCode() <= 57 && e.getCode().getCode() > 48) {
             enterNumber(e.getCode().getCode() - 48);
         } else if (e.getCode() == KeyCode.DELETE) {
             sudoku.remove(selectedSquare);
+            clearSmallNumbers(selectedSquare);
             selectedSquare = -1;
             selectionRect.setFill(hoverColor);
             drawMatrix(sudoku.getMatrix(), sudoku.getStartNumbers());
+        } else if (e.getCode().getCode() > 96 && e.getCode().getCode() <= 105) {
+            if (!setupMode) {
+                drawSmallNumber(e.getCode().getCode() - 96, selectedSquare);
+            }
         }
     }
 
@@ -122,10 +131,12 @@ public class SudokuController {
         if (setupMode) {
             if (sudoku.insertStartNumber(selectedSquare, number)) {
                 drawMatrix(sudoku.getMatrix(), sudoku.getStartNumbers());
+                clearSmallNumbers(selectedSquare);
             }
         } else {
             if (sudoku.insertNumber(selectedSquare, number)) {
                 drawMatrix(sudoku.getMatrix(), sudoku.getStartNumbers());
+                clearSmallNumbers(selectedSquare);
             }
         }
 
@@ -136,6 +147,7 @@ public class SudokuController {
     private void drawMatrix(int[] matrix, boolean[] startNumbers) {
         double numberOffset = 15;
         GraphicsContext gc = gameCanvas.getGraphicsContext2D();
+        gc.setFill(Color.BLACK);
         Font font;
 
         if (matrix.length != 81) {
@@ -157,6 +169,33 @@ public class SudokuController {
                         yCord * squareWidth + (yCord/3) * 6 + 42);
             }
         }
+    }
+
+    private void drawSmallNumber(int number, int squareNumber) {
+        GraphicsContext gc = notationCanvas.getGraphicsContext2D();
+        Font font = Font.font("Arial", 15);
+        gc.setFill(Color.GREY);
+        gc.setFont(font);
+
+        int xCord = squareNumber % 9;
+        int yCord = squareNumber / 9;
+
+        int xCordNumber = (int) (xCord * squareWidth + (xCord/3) * 6 + 5 + ((number - 1) % 3) * 17);
+        int yCordNumber = (int) (yCord * squareWidth + (yCord/3) * 6 + 15 + ((number - 1) / 3) * 17);
+
+        gc.fillText(Integer.toString(number), xCordNumber, yCordNumber);
+    }
+
+    private void clearSmallNumbers(int squareNumber) {
+        GraphicsContext gc = notationCanvas.getGraphicsContext2D();
+
+        int xCord = squareNumber % 9;
+        int yCord = squareNumber / 9;
+
+        int xTopLeft = (int) (xCord * squareWidth + (xCord/3) * 6);
+        int yTopLeft = (int) (yCord * squareWidth + (yCord/3) * 6);
+
+        gc.clearRect(xTopLeft, yTopLeft, squareWidth, squareWidth);
     }
 }
 
