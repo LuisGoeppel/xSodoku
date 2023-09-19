@@ -8,9 +8,13 @@ public class SudokuSolver {
     private static int[] cols;
     private static int[] boxes;
     private static int[] matrix;
+    private static int[] helperMatrix;
 
     public static String solve(String input) {
         matrix = new int[81];
+        helperMatrix = new int[81];
+
+        Arrays.fill(helperMatrix, 0);
         input = input.replaceAll("/", "");
 
         if (input.length() != 81) {
@@ -64,9 +68,18 @@ public class SudokuSolver {
         do {
             beforeRotation = getMatrixAsString();
             combineInformation();
-            checkMissingNumbers();
+            checkMissingNumbers(false);
             afterRotation = getMatrixAsString();
         } while (!beforeRotation.equals(afterRotation));
+
+        if (!isSolved()) {
+            do {
+                beforeRotation = getMatrixAsString();
+                combineInformation();
+                checkMissingNumbers(true);
+                afterRotation = getMatrixAsString();
+            } while (!beforeRotation.equals(afterRotation));
+        }
 
         long end = System.nanoTime();
         System.out.println("Solved in " + (((double)(end - start)) / 1_000_000_000.0) + " Seconds");
@@ -98,12 +111,12 @@ public class SudokuSolver {
         } while (progressMade);
     }
 
-    private static void checkMissingNumbers() {
+    private static void checkMissingNumbers(boolean extendedSearch) {
 
         // Check for missing numbers in all rows
         for (int i = 0; i < 9; i++) {
             int nSetBits = getNSetBits(rows[i]);
-            if (nSetBits >= 6 && nSetBits < 9) {
+            if (nSetBits >= 5 && nSetBits < 9) {
                 for (int k = 0; k < 9; k++) {
                     if (!isBitSet(rows[i], k)) {
                         int possibleSquares = 0;
@@ -135,7 +148,7 @@ public class SudokuSolver {
         // Check for missing numbers in all columns
         for (int i = 0; i < 9; i++) {
             int nSetBits = getNSetBits(cols[i]);
-            if (nSetBits >= 6 && nSetBits < 9) {
+            if (nSetBits >= 5 && nSetBits < 9) {
                 for (int k = 0; k < 9; k++) {
                     if (!isBitSet(cols[i], k)) {
                         int possibleSquares = 0;
@@ -166,35 +179,101 @@ public class SudokuSolver {
 
         // Check for missing numbers in all boxes
         for (int i = 0; i < 9; i++) {
-            int nSetBits = getNSetBits(boxes[i]);
-            if (nSetBits >= 4 && nSetBits < 9) {
-                for (int k = 0; k < 9; k++) {
-                    if (!isBitSet(boxes[i], k)) {
-                        int possibleSquares = 0;
-                        int possibleSquare = -1;
-                        for (int m = 0; m < 9; m++) {
-                            int squareNumber = (i / 3) * 27 + (m / 3) * 9 + (i % 3) * 3 + (m % 3);
-                            if (matrix[squareNumber] == 0) {
-                                int rowNumber = getRowNumber(squareNumber);
-                                int colNumber = getColumnNumber(squareNumber);
-                                int mask = 1 << k;
+            for (int k = 0; k < 9; k++) {
+                if (!isBitSet(boxes[i], k)) {
+                    int possibleSquares = 0;
+                    for (int m = 0; m < 9; m++) {
+                        int squareNumber = (i / 3) * 27 + (m / 3) * 9 + (i % 3) * 3 + (m % 3);
+                        if (matrix[squareNumber] == 0) {
+                            int rowNumber = getRowNumber(squareNumber);
+                            int colNumber = getColumnNumber(squareNumber);
+                            int mask = 1 << k;
 
-                                if ((rows[rowNumber] & mask) == 0 && (cols[colNumber] & mask) == 0) {
-                                    possibleSquare = squareNumber;
-                                    possibleSquares++;
+                            if ((rows[rowNumber] & mask) == 0 && (cols[colNumber] & mask) == 0) {
+                                if (extendedSearch) {
+                                    if (!(helperRowContains(rowNumber, k + 1) || helperColContains(colNumber, k + 1))) {
+                                        possibleSquares += (1 << m);
+                                    }
+                                } else {
+                                    possibleSquares += (1 << m);
                                 }
                             }
                         }
-                        if (possibleSquares == 1) {
-                            matrix[possibleSquare] = k + 1;
-                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
-                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
-                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                    }
+                    int nSetBits = getNSetBits(possibleSquares);
+                    if (nSetBits == 1) {
+                        int m = getPowerOfTwo(possibleSquares);
+                        int possibleSquare = (i / 3) * 27 + (m / 3) * 9 + (i % 3) * 3 + (m % 3);
+                        matrix[possibleSquare] = k + 1;
+                        rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
+                        cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
+                        boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                    } else if (extendedSearch && nSetBits == 2) {
+                        if (bitsSameRow(possibleSquares) || bitsSameCol(possibleSquares)) {
+                            int lsBitPos = getLsBitPos(possibleSquares);
+                            int msBitPos = getMsBitPos(possibleSquares);
+                            int possibleSquare1 = (i / 3) * 27 + (lsBitPos / 3) * 9 + (i % 3) * 3 + (lsBitPos % 3);
+                            int possibleSquare2 = (i / 3) * 27 + (msBitPos / 3) * 9 + (i % 3) * 3 + (msBitPos % 3);
+                            helperMatrix[possibleSquare1] = (k + 1);
+                            helperMatrix[possibleSquare2] = (k + 1);
                         }
                     }
                 }
             }
         }
+    }
+
+    private static boolean helperRowContains(int rowNumber, int number) {
+        int temp = 0;
+        for (int i = 0; i < 9; i++) {
+            if (helperMatrix[rowNumber * 9 + i] == number) {
+                temp++;
+                if (temp > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean helperColContains(int colNumber, int number) {
+        int temp = 0;
+        for (int i = 0; i < 9; i++) {
+            if (helperMatrix[colNumber + i * 9] == number) {
+                temp++;
+                if (temp > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isSolved() {
+        for (int i = 0; i < matrix.length; i++) {
+            if (matrix[i] == 0) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static int getLsBitPos(int num) {
+        for (int i = 0; i < 32; i++) {
+            if (((num >> i) & 1) == 1) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private static int getMsBitPos(int num) {
+        for (int i = 10; i >= 0; i--) {
+            if (((num >> i) & 1) == 1) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     private static int getNSetBits(int n) {
@@ -238,6 +317,41 @@ public class SudokuSolver {
         int mask = 1 << pos;
         return (number & mask) > 0;
     }
+
+    private static boolean bitsSameRow(int num) {
+        int pos1 = -1;
+        int pos2 = -1;
+
+        for (int i = 0; i < 10; i++) {
+            if (((num >> i) & 1) == 1) {
+                if (pos1 == -1) {
+                    pos1 = i;
+                } else {
+                    pos2 = i;
+                    break;
+                }
+            }
+        }
+        return (pos1 / 3) == (pos2 / 3);
+    }
+
+    private static boolean bitsSameCol(int num) {
+        int pos1 = -1;
+        int pos2 = -1;
+
+        for (int i = 0; i < 10; i++) {
+            if (((num >> i) & 1) == 1) {
+                if (pos1 == -1) {
+                    pos1 = i;
+                } else {
+                    pos2 = i;
+                    break;
+                }
+            }
+        }
+        return (pos1 % 3) == (pos2 % 3);
+    }
+
 
     private static int clearBit(int num, int position) {
         int mask = ~(1 << position);
