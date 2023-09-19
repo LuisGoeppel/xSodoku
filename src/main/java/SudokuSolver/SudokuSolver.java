@@ -8,46 +8,47 @@ public class SudokuSolver {
     private static int[] cols;
     private static int[] boxes;
     private static int[] matrix;
-    private static int[] helperMatrix;
 
     public static String solve(String input) {
         matrix = new int[81];
-        helperMatrix = new int[81];
-
-        Arrays.fill(helperMatrix, 0);
-        input = input.replaceAll("/", "");
-
-        if (input.length() != 81) {
-            throw new IllegalArgumentException("The input has the wrong length");
-        }
-
-        for (int i = 0; i < input.length(); i++) {
-            if (input.charAt(i) == '-') {
-                matrix[i] = 0;
-            } else {
-                int number = input.charAt(i) - '0';
-                if (number < 0 || number >= 10) {
-                    throw new IllegalArgumentException("The input contains an illegal character");
-                }
-                matrix[i] = number;
-            }
-        }
-        solve();
-        return getMatrixAsString();
-    }
-
-    private static void solve() {
-        long start = System.nanoTime();
-
         rows = new int[9];
         cols = new int[9];
         boxes = new int[9];
 
+        setMatrixToString(input);
+        fillRowColBoxInformation();
+
+        long start = System.nanoTime();
+        solve();
+        long end = System.nanoTime();
+
+        System.out.println("Solved in " + (((double)(end - start)) / 1_000_000_000.0) + " Seconds");
+        return getMatrixAsString();
+    }
+
+    private static void solve() {
+        String beforeRotation;
+        String afterRotation;
+
+        fillRowColBoxInformation();
+
+        do {
+            beforeRotation = getMatrixAsString();
+            combineInformation();
+            checkMissingNumbers();
+            afterRotation = getMatrixAsString();
+        } while (!beforeRotation.equals(afterRotation));
+
+        if (!isSolved()) {
+            educatedGuess();
+        }
+    }
+
+    private static void fillRowColBoxInformation() {
         Arrays.fill(rows, 0);
         Arrays.fill(cols, 0);
         Arrays.fill(boxes, 0);
 
-        // Fill all row, column and box information
         for (int j = 0; j < 81; j++) {
             if (matrix[j] > 0) {
                 int number = matrix[j] - 1;
@@ -61,28 +62,6 @@ public class SudokuSolver {
                 boxes[boxNumber] = boxes[boxNumber] | (1 << number);
             }
         }
-
-        String beforeRotation;
-        String afterRotation;
-
-        do {
-            beforeRotation = getMatrixAsString();
-            combineInformation();
-            checkMissingNumbers(false);
-            afterRotation = getMatrixAsString();
-        } while (!beforeRotation.equals(afterRotation));
-
-        if (!isSolved()) {
-            do {
-                beforeRotation = getMatrixAsString();
-                combineInformation();
-                checkMissingNumbers(true);
-                afterRotation = getMatrixAsString();
-            } while (!beforeRotation.equals(afterRotation));
-        }
-
-        long end = System.nanoTime();
-        System.out.println("Solved in " + (((double)(end - start)) / 1_000_000_000.0) + " Seconds");
     }
 
     private static void combineInformation() {
@@ -111,7 +90,7 @@ public class SudokuSolver {
         } while (progressMade);
     }
 
-    private static void checkMissingNumbers(boolean extendedSearch) {
+    private static void checkMissingNumbers() {
 
         // Check for missing numbers in all rows
         for (int i = 0; i < 9; i++) {
@@ -136,9 +115,7 @@ public class SudokuSolver {
                         }
                         if (possibleSquares == 1) {
                             matrix[possibleSquare] = k + 1;
-                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
-                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
-                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                            updateRowColBoxInformation(possibleSquare, k);
                         }
                     }
                 }
@@ -168,9 +145,7 @@ public class SudokuSolver {
                         }
                         if (possibleSquares == 1) {
                             matrix[possibleSquare] = k + 1;
-                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
-                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
-                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                            updateRowColBoxInformation(possibleSquare, k);
                         }
                     }
                 }
@@ -190,13 +165,7 @@ public class SudokuSolver {
                             int mask = 1 << k;
 
                             if ((rows[rowNumber] & mask) == 0 && (cols[colNumber] & mask) == 0) {
-                                if (extendedSearch) {
-                                    if (!(helperRowContains(rowNumber, k + 1) || helperColContains(colNumber, k + 1))) {
-                                        possibleSquares += (1 << m);
-                                    }
-                                } else {
-                                    possibleSquares += (1 << m);
-                                }
+                                possibleSquares += (1 << m);
                             }
                         }
                     }
@@ -205,48 +174,46 @@ public class SudokuSolver {
                         int m = getPowerOfTwo(possibleSquares);
                         int possibleSquare = (i / 3) * 27 + (m / 3) * 9 + (i % 3) * 3 + (m % 3);
                         matrix[possibleSquare] = k + 1;
-                        rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
-                        cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
-                        boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
-                    } else if (extendedSearch && nSetBits == 2) {
-                        if (bitsSameRow(possibleSquares) || bitsSameCol(possibleSquares)) {
-                            int lsBitPos = getLsBitPos(possibleSquares);
-                            int msBitPos = getMsBitPos(possibleSquares);
-                            int possibleSquare1 = (i / 3) * 27 + (lsBitPos / 3) * 9 + (i % 3) * 3 + (lsBitPos % 3);
-                            int possibleSquare2 = (i / 3) * 27 + (msBitPos / 3) * 9 + (i % 3) * 3 + (msBitPos % 3);
-                            helperMatrix[possibleSquare1] = (k + 1);
-                            helperMatrix[possibleSquare2] = (k + 1);
-                        }
+                        updateRowColBoxInformation(possibleSquare, k);
                     }
                 }
             }
         }
     }
 
-    private static boolean helperRowContains(int rowNumber, int number) {
-        int temp = 0;
-        for (int i = 0; i < 9; i++) {
-            if (helperMatrix[rowNumber * 9 + i] == number) {
-                temp++;
-                if (temp > 1) {
-                    return true;
+    private static void educatedGuess() {
+        for (int i = 0; i < 81; i++) {
+            if (matrix[i] == 0) {
+                int rowNumber = getRowNumber(i);
+                int colNumber = getColumnNumber(i);
+                int boxNumber = getBoxNumber(i);
+
+                int possibilities = 511 & ~(rows[rowNumber] | cols[colNumber] | boxes[boxNumber]);
+
+                if (getNSetBits(possibilities) == 2) {
+                    String backup = getMatrixAsString();
+                    int firstPossibility = getLsBitPos(possibilities) + 1;
+                    matrix[i] = firstPossibility;
+                    System.out.println("Educated Guess: Square " + i + " contains the number " + firstPossibility);
+                    solve();
+                    if (hasConflicts()) {
+                        setMatrixToString(backup);
+                        int secondPossibility = getMsBitPos(possibilities) + 1;
+                        matrix[i] = secondPossibility;
+                        System.out.println("Reverting that Guess: Square " + i +
+                                " is not " + firstPossibility + ", but " + secondPossibility);
+                        solve();
+                    }
+                    break;
                 }
             }
         }
-        return false;
     }
 
-    private static boolean helperColContains(int colNumber, int number) {
-        int temp = 0;
-        for (int i = 0; i < 9; i++) {
-            if (helperMatrix[colNumber + i * 9] == number) {
-                temp++;
-                if (temp > 1) {
-                    return true;
-                }
-            }
-        }
-        return false;
+    private static void updateRowColBoxInformation(int square, int number) {
+        rows[getRowNumber(square)] = rows[getRowNumber(square)] | (1 << number);
+        cols[getColumnNumber(square)] = cols[getColumnNumber(square)] | (1 << number);
+        boxes[getBoxNumber(square)] = boxes[getBoxNumber(square)] | (1 << number);
     }
 
     private static boolean isSolved() {
@@ -256,6 +223,27 @@ public class SudokuSolver {
             }
         }
         return true;
+    }
+
+    private static boolean hasConflicts() {
+        if(isSolved()) {
+            return false;
+        }
+        for (int i = 0; i < 81; i++) {
+            if (matrix[i] == 0) {
+                int possibilities = 9;
+                for (int j = 0; j <= 8; j++) {
+                    if (isBitSet(rows[getRowNumber(i)], j) || isBitSet(cols[getColumnNumber(i)], j)
+                            || isBitSet(boxes[getBoxNumber(i)], j)) {
+                        possibilities--;
+                    }
+                }
+                if (possibilities == 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static int getLsBitPos(int num) {
@@ -283,6 +271,26 @@ public class SudokuSolver {
             n >>= 1;
         }
         return count;
+    }
+
+    private static void setMatrixToString(String input) {
+        input = input.replaceAll("/", "");
+
+        if (input.length() != 81) {
+            throw new IllegalArgumentException("The input has the wrong length");
+        }
+
+        for (int i = 0; i < input.length(); i++) {
+            if (input.charAt(i) == '-') {
+                matrix[i] = 0;
+            } else {
+                int number = input.charAt(i) - '0';
+                if (number < 0 || number >= 10) {
+                    throw new IllegalArgumentException("The input contains an illegal character");
+                }
+                matrix[i] = number;
+            }
+        }
     }
 
     private static String getMatrixAsString() {
@@ -352,12 +360,6 @@ public class SudokuSolver {
         return (pos1 % 3) == (pos2 % 3);
     }
 
-
-    private static int clearBit(int num, int position) {
-        int mask = ~(1 << position);
-        return num & mask;
-    }
-
     private static int getRowNumber(int squareNumber) {
         return squareNumber / 9;
     }
@@ -370,40 +372,3 @@ public class SudokuSolver {
         return (squareNumber / 27) * 3 + ((squareNumber % 9) / 3);
     }
 }
-
-/*
-
-
-
-
-                if (isPowerOfTwo(possibleNumbers[j])) {
-                    int number = getPowerOfTwo(possibleNumbers[j]);
-                    matrix[j] = number;
-                    updatedMatrix = true;
-                } else {
-                    int xCord = j % 9;
-                    int yCord = j / 9;
-
-                    // Eliminate all row numbers as possibilities
-                    for (int k = 9 * yCord; k < 9 * (yCord + 1); k++) {
-                        if (matrix[k] > 0) {
-                            possibleNumbers[j] = clearBit(possibleNumbers[j], matrix[k] - 1);
-                        }
-                    }
-
-                    // Eliminate all column numbers as possibilities
-                    for (int k = xCord; k < 81; k += 9) {
-                        if (matrix[k] > 0) {
-                            possibleNumbers[j] = clearBit(possibleNumbers[j], matrix[k] - 1);
-                        }
-                    }
-
-                    // Eliminate all box numbers as possibilities
-                    for (int k = 0; k < 81; k++) {
-                        if (((k / 9) / 3) == (yCord / 3) && ((k % 9) / 3) == (xCord / 3)) {
-                            if (matrix[k] > 0) {
-                                possibleNumbers[j] = clearBit(possibleNumbers[j], matrix[k] - 1);
-                            }
-                        }
-                    }
- */

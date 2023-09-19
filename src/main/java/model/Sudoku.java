@@ -4,9 +4,7 @@ import java.util.Random;
 
 public class Sudoku {
     private int[] matrix;
-    private boolean[] startNumber;
-
-    private Random random;
+    private final boolean[] startNumber;
 
     public Sudoku(String input) {
         matrix = new int[81];
@@ -29,7 +27,7 @@ public class Sudoku {
     public Sudoku() {
         matrix = new int[81];
         startNumber = new boolean[81];
-        random = new Random();
+        Random random = new Random();
 
         for (int i = 0; i < 81; i++) {
             matrix[i] = 0;
@@ -108,6 +106,7 @@ public class Sudoku {
         for (int i = 0; i < update.length(); i++) {
             if (matrix[i] > 0) {
                 if (update.charAt(i) - '0' != matrix[i]) {
+                    matrix = backup;
                     return false;
                 }
             } else {
