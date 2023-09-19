@@ -4,6 +4,7 @@ import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyEvent;
 import javafx.stage.Stage;
 
@@ -13,7 +14,7 @@ public class GUI extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        //Image icon = new Image(System.getProperty("user.dir") + "\\src\\main\\resources\\Images\\EngineLogo.PNG");
+        Image icon = new Image(System.getProperty("user.dir") + "\\src\\main\\resources\\Images\\iconSudoku.png");
         FXMLLoader loader = new FXMLLoader(getClass().getResource("Sudoku.fxml"));
         Parent root = loader.load();
 
@@ -23,7 +24,7 @@ public class GUI extends Application {
         gameController.init();
 
         stage.setTitle("Sudoku");
-        //stage.getIcons().add(icon);
+        stage.getIcons().add(icon);
         stage.setScene(gameScene);
         stage.setResizable(false);
         stage.requestFocus();

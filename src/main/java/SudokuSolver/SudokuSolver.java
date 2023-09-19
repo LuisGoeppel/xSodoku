@@ -4,8 +4,13 @@ import java.util.Arrays;
 
 public class SudokuSolver {
 
+    private static int[] rows;
+    private static int[] cols;
+    private static int[] boxes;
+    private static int[] matrix;
+
     public static String solve(String input) {
-        int[] matrix = new int[81];
+        matrix = new int[81];
         input = input.replaceAll("/", "");
 
         if (input.length() != 81) {
@@ -23,36 +28,29 @@ public class SudokuSolver {
                 matrix[i] = number;
             }
         }
-        int[] solvedMatrix = solve(matrix);
-
-        StringBuilder output = new StringBuilder();
-        for (int i = 0; i < solvedMatrix.length; i++) {
-            if (i % 9 == 0 && i != 0) {
-                output.append("/");
-            }
-            output.append(solvedMatrix[i]);
-        }
-
-        return output.toString();
+        solve();
+        return getMatrixAsString();
     }
 
-    private static int[] solve(int[] matrix) {
+    private static void solve() {
+        long start = System.nanoTime();
 
-        int[] rows = new int[9];
-        int[] cols = new int[9];
-        int[] boxes = new int[9];
+        rows = new int[9];
+        cols = new int[9];
+        boxes = new int[9];
 
         Arrays.fill(rows, 0);
         Arrays.fill(cols, 0);
         Arrays.fill(boxes, 0);
 
+        // Fill all row, column and box information
         for (int j = 0; j < 81; j++) {
             if (matrix[j] > 0) {
                 int number = matrix[j] - 1;
 
-                int rowNumber = j / 9;
-                int colNumber = j % 9;
-                int boxNumber = (j / 27) * 3 + ((j % 9) / 3);
+                int rowNumber = getRowNumber(j);
+                int colNumber = getColumnNumber(j);
+                int boxNumber = getBoxNumber(j);
 
                 rows[rowNumber] = rows[rowNumber] | (1 << number);
                 cols[colNumber] = cols[colNumber] | (1 << number);
@@ -60,15 +58,30 @@ public class SudokuSolver {
             }
         }
 
+        String beforeRotation;
+        String afterRotation;
+
+        do {
+            beforeRotation = getMatrixAsString();
+            combineInformation();
+            checkMissingNumbers();
+            afterRotation = getMatrixAsString();
+        } while (!beforeRotation.equals(afterRotation));
+
+        long end = System.nanoTime();
+        System.out.println("Solved in " + (((double)(end - start)) / 1_000_000_000.0) + " Seconds");
+    }
+
+    private static void combineInformation() {
+
         boolean progressMade;
         do {
-            System.out.println("Round");
             progressMade = false;
             for (int j = 0; j < 81; j++) {
                 if (matrix[j] == 0) {
-                    int rowNumber = j / 9;
-                    int colNumber = j % 9;
-                    int boxNumber = (j / 27) * 3 + ((j % 9) / 3);
+                    int rowNumber = getRowNumber(j);
+                    int colNumber = getColumnNumber(j);
+                    int boxNumber = getBoxNumber(j);
 
                     int possibilities = 511 & ~(rows[rowNumber] | cols[colNumber] | boxes[boxNumber]);
 
@@ -83,9 +96,127 @@ public class SudokuSolver {
                 }
             }
         } while (progressMade);
-        return matrix;
     }
 
+    private static void checkMissingNumbers() {
+
+        // Check for missing numbers in all rows
+        for (int i = 0; i < 9; i++) {
+            int nSetBits = getNSetBits(rows[i]);
+            if (nSetBits >= 6 && nSetBits < 9) {
+                for (int k = 0; k < 9; k++) {
+                    if (!isBitSet(rows[i], k)) {
+                        int possibleSquares = 0;
+                        int possibleSquare = -1;
+                        for (int m = 0; m < 9; m++) {
+                            int squareNumber = 9 * i + m;
+                            if (matrix[squareNumber] == 0) {
+                                int columnNumber = getColumnNumber(squareNumber);
+                                int boxNumber = getBoxNumber(squareNumber);
+                                int mask = 1 << k;
+
+                                if ((cols[columnNumber] & mask) == 0 && (boxes[boxNumber] & mask) == 0) {
+                                    possibleSquare = squareNumber;
+                                    possibleSquares++;
+                                }
+                            }
+                        }
+                        if (possibleSquares == 1) {
+                            matrix[possibleSquare] = k + 1;
+                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
+                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
+                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for missing numbers in all columns
+        for (int i = 0; i < 9; i++) {
+            int nSetBits = getNSetBits(cols[i]);
+            if (nSetBits >= 6 && nSetBits < 9) {
+                for (int k = 0; k < 9; k++) {
+                    if (!isBitSet(cols[i], k)) {
+                        int possibleSquares = 0;
+                        int possibleSquare = -1;
+                        for (int m = 0; m < 9; m++) {
+                            int squareNumber = i + 9 * m;
+                            if (matrix[squareNumber] == 0) {
+                                int rowNumber = getRowNumber(squareNumber);
+                                int boxNumber = getBoxNumber(squareNumber);
+                                int mask = 1 << k;
+
+                                if ((rows[rowNumber] & mask) == 0 && (boxes[boxNumber] & mask) == 0) {
+                                    possibleSquare = squareNumber;
+                                    possibleSquares++;
+                                }
+                            }
+                        }
+                        if (possibleSquares == 1) {
+                            matrix[possibleSquare] = k + 1;
+                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
+                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
+                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for missing numbers in all boxes
+        for (int i = 0; i < 9; i++) {
+            int nSetBits = getNSetBits(boxes[i]);
+            if (nSetBits >= 4 && nSetBits < 9) {
+                for (int k = 0; k < 9; k++) {
+                    if (!isBitSet(boxes[i], k)) {
+                        int possibleSquares = 0;
+                        int possibleSquare = -1;
+                        for (int m = 0; m < 9; m++) {
+                            int squareNumber = (i / 3) * 27 + (m / 3) * 9 + (i % 3) * 3 + (m % 3);
+                            if (matrix[squareNumber] == 0) {
+                                int rowNumber = getRowNumber(squareNumber);
+                                int colNumber = getColumnNumber(squareNumber);
+                                int mask = 1 << k;
+
+                                if ((rows[rowNumber] & mask) == 0 && (cols[colNumber] & mask) == 0) {
+                                    possibleSquare = squareNumber;
+                                    possibleSquares++;
+                                }
+                            }
+                        }
+                        if (possibleSquares == 1) {
+                            matrix[possibleSquare] = k + 1;
+                            rows[getRowNumber(possibleSquare)] = rows[getRowNumber(possibleSquare)] | (1 << k);
+                            cols[getColumnNumber(possibleSquare)] = cols[getColumnNumber(possibleSquare)] | (1 << k);
+                            boxes[getBoxNumber(possibleSquare)] = boxes[getBoxNumber(possibleSquare)] | (1 << k);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static int getNSetBits(int n) {
+        int count = 0;
+        while (n > 0) {
+            count += n & 1;
+            n >>= 1;
+        }
+        return count;
+    }
+
+    private static String getMatrixAsString() {
+        StringBuilder output = new StringBuilder();
+        for (int i = 0; i < matrix.length; i++) {
+            if (i % 9 == 0 && i != 0) {
+                output.append("/");
+            }
+            output.append(matrix[i]);
+        }
+
+        return output.toString();
+    }
 
     private static boolean isPowerOfTwo(int number) {
         return number > 0 && (number & (number - 1)) == 0;
@@ -103,9 +234,26 @@ public class SudokuSolver {
         }
     }
 
+    private static boolean isBitSet(int number, int pos) {
+        int mask = 1 << pos;
+        return (number & mask) > 0;
+    }
+
     private static int clearBit(int num, int position) {
         int mask = ~(1 << position);
         return num & mask;
+    }
+
+    private static int getRowNumber(int squareNumber) {
+        return squareNumber / 9;
+    }
+
+    private static int getColumnNumber(int squareNumber) {
+        return squareNumber % 9;
+    }
+
+    private static int getBoxNumber(int squareNumber) {
+        return (squareNumber / 27) * 3 + ((squareNumber % 9) / 3);
     }
 }
 
