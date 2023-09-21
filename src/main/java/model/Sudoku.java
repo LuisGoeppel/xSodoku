@@ -1,5 +1,8 @@
 package model;
 
+import SudokuSolver.SudokuSolver;
+
+import java.util.Arrays;
 import java.util.Random;
 
 public class Sudoku {
@@ -27,21 +30,18 @@ public class Sudoku {
     public Sudoku() {
         matrix = new int[81];
         startNumber = new boolean[81];
-        Random random = new Random();
+        Arrays.fill(matrix, 0);
+        Arrays.fill(startNumber, false);
 
-        for (int i = 0; i < 81; i++) {
-            matrix[i] = 0;
-            startNumber[i] = false;
-        }
-
-        int nStartNumbers = 12;
-        do {
-            int squareNumber = random.nextInt(81);
-            int number = random.nextInt(9) + 1;
-            if (insert(squareNumber, number, true)) {
-                nStartNumbers --;
+        String sudoku = SudokuGenerator.getRandomSudoku();
+        assert sudoku != null && sudoku.length() == 81;
+        sudoku = sudoku.replaceAll("/", "");
+        for (int i = 0; i < sudoku.length(); i++) {
+            if (sudoku.charAt(i) != '-') {
+                startNumber[i] = true;
+                matrix[i] = sudoku.charAt(i) - '0';
             }
-        } while (nStartNumbers > 0);
+        }
     }
 
     public boolean insertNumber(int squareNumber, int number) {
